@@ -1,174 +1,153 @@
-let board = Array(9).fill("");
+const setupScreen = document.getElementById("setupScreen");
+const gameScreen = document.getElementById("gameScreen");
+const startBtn = document.getElementById("startBtn");
+const board = document.getElementById("board");
+const status = document.getElementById("status");
+const playerNames = document.getElementById("playerNames");
+const resetBtn = document.getElementById("resetBtn");
+const roundDisplay = document.getElementById("roundDisplay");
+const scoreX = document.getElementById("scoreX");
+const scoreO = document.getElementById("scoreO");
+const nameInputs = document.getElementById("nameInputs");
+const themeBtn = document.getElementById("themeBtn");
+const player1Input = document.getElementById("player1");
+const player2Input = document.getElementById("player2");
+
 let currentPlayer = "X";
-let gameActive = false;
-let gameMode = "human";
-let totalRounds = 1;
-let currentRound = 1;
-let score = { X: 0, O: 0 };
+let gameBoard = ["", "", "", "", "", "", "", "", ""];
+let isGameOver = false;
+let round = 1;
+let maxRounds = 1;
+let mode = null;
+let players = { X: "", O: "" };
+let scores = { X: 0, O: 0 };
 
-const boardContainer = document.getElementById("board");
-const statusDisplay = document.getElementById("status");
-const scoreboard = document.getElementById("scoreboard");
+// Theme toggle
+themeBtn.onclick = () => {
+  document.body.classList.toggle("dark");
+};
 
-const winningCombinations = [
-  [0,1,2], [3,4,5], [6,7,8],
-  [0,3,6], [1,4,7], [2,5,8],
-  [0,4,8], [2,4,6]
-];
+// Handle round selection & show name inputs
+document.querySelectorAll(".round-btn").forEach(btn =>
+  btn.onclick = (e) => {
+    const modeButton = e.target.closest(".mode-wrapper").querySelector(".mode-btn");
+    mode = modeButton.dataset.mode;
+    maxRounds = parseInt(btn.dataset.rounds);
+    nameInputs.classList.remove("hidden");
+    player1Input.value = "";
+    player2Input.value = "";
+    startBtn.classList.add("hidden");
+  }
+);
 
-function renderBoard() {
-  boardContainer.innerHTML = "";
-  board.forEach((cell, index) => {
-    const cellDiv = document.createElement("div");
-    cellDiv.classList.add("cell");
-    cellDiv.dataset.index = index;
-    cellDiv.textContent = cell;
-    cellDiv.addEventListener("click", handleClick);
-    boardContainer.appendChild(cellDiv);
+// Show start button when both names are entered
+[nameInputs].forEach(group => {
+  group.addEventListener("input", () => {
+    const p1 = player1Input.value.trim();
+    const p2 = player2Input.value.trim();
+    if (p1 && p2) {
+      startBtn.classList.remove("hidden");
+    } else {
+      startBtn.classList.add("hidden");
+    }
   });
+});
+
+// Start the game
+startBtn.onclick = () => {
+  const p1 = player1Input.value.trim() || "Player 1";
+  const p2 = player2Input.value.trim() || (mode === "ai" ? "Computer" : "Player 2");
+
+  players = { X: p1, O: p2 };
+  setupScreen.classList.add("hidden");
+  gameScreen.classList.remove("hidden");
+  resetBtn.classList.remove("hidden");
+  scores = { X: 0, O: 0 };
+  round = 1;
+  updateScoreboard();
+  startRound();
+};
+
+function updateScoreboard() {
+  scoreX.textContent = `${players.X || 'X'}: ${scores.X}`;
+  scoreO.textContent = `${players.O || 'O'}: ${scores.O}`;
 }
 
-function handleClick(event) {
-  const index = event.target.dataset.index;
-  if (board[index] !== "" || !gameActive) return;
+function startRound() {
+  gameBoard = ["", "", "", "", "", "", "", "", ""];
+  isGameOver = false;
+  currentPlayer = "X";
+  board.innerHTML = "";
+  roundDisplay.textContent = `Round ${round} of ${maxRounds}`;
+  playerNames.textContent = `${players.X} (X) vs ${players.O} (O)`;
+  status.textContent = `${players[currentPlayer]}'s turn`;
 
-  makeMove(index);
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement("div");
+    cell.classList.add("cell");
+    cell.dataset.index = i;
+    cell.addEventListener("click", handleClick);
+    board.appendChild(cell);
+  }
 }
 
-function makeMove(index) {
-  board[index] = currentPlayer;
-  renderBoard();
+function handleClick(e) {
+  const index = e.target.dataset.index;
+  if (gameBoard[index] || isGameOver) return;
 
-  if (checkWin(currentPlayer)) {
-    score[currentPlayer]++;
+  gameBoard[index] = currentPlayer;
+  e.target.textContent = currentPlayer;
+
+  if (checkWinner()) {
+    scores[currentPlayer]++;
     updateScoreboard();
-    statusDisplay.textContent = `${currentPlayer} wins Round ${currentRound}`;
-    gameActive = false;
-    nextRoundOrEnd();
-  } else if (board.every(cell => cell !== "")) {
-    statusDisplay.textContent = `Draw in Round ${currentRound}`;
-    gameActive = false;
-    nextRoundOrEnd();
+    status.textContent = `${players[currentPlayer]} wins this round!`;
+    isGameOver = true;
+    setTimeout(nextRound, 1500);
+  } else if (gameBoard.every(cell => cell)) {
+    status.textContent = "It's a draw!";
+    isGameOver = true;
+    setTimeout(nextRound, 1500);
   } else {
-    currentPlayer = currentPlayer === "X" ? "O" : "X";
-    statusDisplay.textContent = `Turn: ${currentPlayer}`;
-
-    if (gameMode === "ai" && currentPlayer === "O") {
-      setTimeout(aiMove, 300);
+    switchPlayer();
+    if (mode === "ai" && currentPlayer === "O") {
+      setTimeout(aiMove, 500);
     }
   }
 }
 
 function aiMove() {
-  const index = getBestMove();
-  if (index !== undefined) {
-    makeMove(index);
-  }
+  let empty = gameBoard.map((v, i) => v === "" ? i : null).filter(i => i !== null);
+  let move = empty[Math.floor(Math.random() * empty.length)];
+  document.querySelector(`.cell[data-index="${move}"]`).click();
 }
 
-function getBestMove() {
-  let bestScore = -Infinity;
-  let move;
-  board.forEach((cell, index) => {
-    if (cell === "") {
-      board[index] = "O";
-      let score = minimax(board, 0, false);
-      board[index] = "";
-      if (score > bestScore) {
-        bestScore = score;
-        move = index;
-      }
-    }
-  });
-  return move;
+function switchPlayer() {
+  currentPlayer = currentPlayer === "X" ? "O" : "X";
+  status.textContent = `${players[currentPlayer]}'s turn`;
 }
 
-function minimax(boardState, depth, isMaximizing) {
-  const result = getWinner();
-  if (result !== null) {
-    const scores = { X: -1, O: 1, draw: 0 };
-    return scores[result];
-  }
-
-  if (isMaximizing) {
-    let best = -Infinity;
-    boardState.forEach((cell, index) => {
-      if (cell === "") {
-        boardState[index] = "O";
-        best = Math.max(best, minimax(boardState, depth + 1, false));
-        boardState[index] = "";
-      }
-    });
-    return best;
-  } else {
-    let best = Infinity;
-    boardState.forEach((cell, index) => {
-      if (cell === "") {
-        boardState[index] = "X";
-        best = Math.min(best, minimax(boardState, depth + 1, true));
-        boardState[index] = "";
-      }
-    });
-    return best;
-  }
-}
-
-function getWinner() {
-  for (const combo of winningCombinations) {
-    const [a, b, c] = combo;
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return board[a];
-    }
-  }
-  if (board.every(cell => cell !== "")) return "draw";
-  return null;
-}
-
-function checkWin(player) {
-  return winningCombinations.some(combo =>
-    combo.every(i => board[i] === player)
+function checkWinner() {
+  const wins = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+  return wins.some(([a,b,c]) =>
+    gameBoard[a] && gameBoard[a] === gameBoard[b] && gameBoard[a] === gameBoard[c]
   );
 }
 
-function startGame(mode, rounds) {
-  gameMode = mode;
-  totalRounds = rounds;
-  currentRound = 1;
-  score = { X: 0, O: 0 };
-  currentPlayer = "X";
-  gameActive = true;
-  board = Array(9).fill("");
-  updateScoreboard();
-  renderBoard();
-  statusDisplay.textContent = `Round 1 - Turn: ${currentPlayer}`;
-}
-
-function resetGame() {
-  board = Array(9).fill("");
-  currentPlayer = "X";
-  gameActive = true;
-  renderBoard();
-  statusDisplay.textContent = `Round ${currentRound} - Turn: ${currentPlayer}`;
-}
-
-function nextRoundOrEnd() {
-  if (currentRound >= totalRounds) {
-    let winner =
-      score.X > score.O ? "Player X" :
-      score.O > score.X ? "Player O" :
-      "No one";
-    setTimeout(() => {
-      statusDisplay.textContent = `Game Over: ${winner} wins the match!`;
-    }, 500);
-    gameActive = false;
+function nextRound() {
+  round++;
+  if (round > maxRounds) {
+    const winner = scores.X > scores.O ? players.X :
+                   scores.X < scores.O ? players.O :
+                   "No one";
+    status.textContent = `Game over! Winner: ${winner}`;
   } else {
-    currentRound++;
-    setTimeout(() => {
-      resetGame();
-    }, 1000);
+    startRound();
   }
 }
 
-function updateScoreboard() {
-  scoreboard.textContent = `Score - X: ${score.X} | O: ${score.O}`;
-}
+resetBtn.onclick = () => location.reload();
