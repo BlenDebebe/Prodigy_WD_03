@@ -22,38 +22,48 @@ let mode = null;
 let players = { X: "", O: "" };
 let scores = { X: 0, O: 0 };
 
-// Theme toggle
+// 🌗 Theme toggle
 themeBtn.onclick = () => {
   document.body.classList.toggle("dark");
 };
 
-// Handle round selection & show name inputs
-document.querySelectorAll(".round-btn").forEach(btn =>
-  btn.onclick = (e) => {
-    const modeButton = e.target.closest(".mode-wrapper").querySelector(".mode-btn");
+// 🎮 Round selection => show name input box
+document.querySelectorAll(".round-btn").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    const modeWrapper = e.target.closest(".mode-wrapper");
+    const modeButton = modeWrapper.querySelector(".mode-btn");
     mode = modeButton.dataset.mode;
     maxRounds = parseInt(btn.dataset.rounds);
+
+    // Show name inputs and clear previous input
     nameInputs.classList.remove("hidden");
     player1Input.value = "";
     player2Input.value = "";
-    startBtn.classList.add("hidden");
-  }
-);
 
-// Show start button when both names are entered
-[nameInputs].forEach(group => {
-  group.addEventListener("input", () => {
-    const p1 = player1Input.value.trim();
-    const p2 = player2Input.value.trim();
-    if (p1 && p2) {
-      startBtn.classList.remove("hidden");
+    // Show/hide player 2 based on mode
+    if (mode === "ai") {
+      player2Input.style.display = "none";
     } else {
-      startBtn.classList.add("hidden");
+      player2Input.style.display = "inline-block";
     }
+
+    startBtn.classList.add("hidden");
   });
 });
 
-// Start the game
+// 🧠 Input listener to show Start Game button when valid
+nameInputs.addEventListener("input", () => {
+  const p1 = player1Input.value.trim();
+  const p2 = player2Input.style.display === "none" ? "AI" : player2Input.value.trim();
+
+  if (p1 && p2) {
+    startBtn.classList.remove("hidden");
+  } else {
+    startBtn.classList.add("hidden");
+  }
+});
+
+// 🚀 Start Game
 startBtn.onclick = () => {
   const p1 = player1Input.value.trim() || "Player 1";
   const p2 = player2Input.value.trim() || (mode === "ai" ? "Computer" : "Player 2");
@@ -62,17 +72,21 @@ startBtn.onclick = () => {
   setupScreen.classList.add("hidden");
   gameScreen.classList.remove("hidden");
   resetBtn.classList.remove("hidden");
+
   scores = { X: 0, O: 0 };
   round = 1;
+
   updateScoreboard();
   startRound();
 };
 
+// 📊 Update Scoreboard
 function updateScoreboard() {
   scoreX.textContent = `${players.X || 'X'}: ${scores.X}`;
   scoreO.textContent = `${players.O || 'O'}: ${scores.O}`;
 }
 
+// 🔁 Start a New Round
 function startRound() {
   gameBoard = ["", "", "", "", "", "", "", "", ""];
   isGameOver = false;
@@ -91,6 +105,7 @@ function startRound() {
   }
 }
 
+// ⬇ Handle Cell Click
 function handleClick(e) {
   const index = e.target.dataset.index;
   if (gameBoard[index] || isGameOver) return;
@@ -116,6 +131,7 @@ function handleClick(e) {
   }
 }
 
+// 🧠 AI Move (Random)
 function aiMove() {
   let empty = gameBoard.map((v, i) => v === "" ? i : null).filter(i => i !== null);
   let move = empty[Math.floor(Math.random() * empty.length)];
@@ -138,6 +154,7 @@ function checkWinner() {
   );
 }
 
+
 function nextRound() {
   round++;
   if (round > maxRounds) {
@@ -149,5 +166,6 @@ function nextRound() {
     startRound();
   }
 }
+
 
 resetBtn.onclick = () => location.reload();
